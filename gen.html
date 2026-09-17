@@ -700,14 +700,10 @@
 
         </form>
     </div>
+<script>
+        // Usuwamy stare śmieci z pamięci przy każdym starcie generatora
+        localStorage.removeItem("offlinePhoto");
 
-    <script>
-        // =========================================================
-        //    	       KONFIGURACJA CLOUDINARY
-        // =========================================================
-        
-        // =========================================================
-        
         const form = document.getElementById('dataGenerator');
         const fileInput = document.getElementById('fileInput');
         const imageURLInput = document.getElementById('image');
@@ -736,15 +732,12 @@
 
         function adjustSurnameToFemaleIfNeeded(baseSurname, isFemale) {
             if (!isFemale) return baseSurname;
-
             const lower = baseSurname.toLowerCase();
-
             if (lower.endsWith('ski')) return baseSurname.slice(0, -3) + 'ska';
             if (lower.endsWith('cki')) return baseSurname.slice(0, -3) + 'cka';
             if (lower.endsWith('dzki')) return baseSurname.slice(0, -3) + 'dzka';
             if (lower.endsWith('ny')) return baseSurname.slice(0, -2) + 'na';
             if (lower.endsWith('ły')) return baseSurname.slice(0, -2) + 'ła';
-
             return baseSurname;
         }
 
@@ -789,7 +782,6 @@
 
             const firstName = isMale ? getRandomElement(maleNames) : getRandomElement(femaleNames);
             const lastName = getRandomElement(surnames);
-            
             const adjustedLastName = adjustSurnameToFemaleIfNeeded(lastName, !isMale);
             
             document.getElementById('name').value = firstName;
@@ -929,113 +921,96 @@
             return true;
         }
 
+        // OBSŁUGA ZDJĘCIA I ZAPISU OFFLINE
+        let localBase64Image = "";
+
         fileInput.addEventListener('change', function() {
             statusMessage.textContent = ''; 
-            
             const file = this.files[0];
             
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    imagePreview.src = e.target.result;
+                    localBase64Image = e.target.result;
+                    // Zapisujemy od razu do pamięci przeglądarki
+                    localStorage.setItem("offlinePhoto", localBase64Image);
+                    
+                    imagePreview.src = localBase64Image;
                     imagePreview.style.display = 'block';
                     imagePreviewContainer.classList.add('active');
                     fileLabel.style.display = 'none'; 
+                    statusMessage.style.color = 'var(--success-green)';
+                    statusMessage.textContent = 'Nowe zdjęcie załadowane! ✅';
                 };
                 reader.readAsDataURL(file);
-                
-                imageURLInput.value = ''; 
-                statusMessage.textContent = 'Zdjęcie załadowane!';
-                statusMessage.style.color = 'var(--text-light)';
             } else {
                 fileLabel.style.display = 'block';
                 imagePreview.style.display = 'none';
                 imagePreviewContainer.classList.remove('active');
-                imageURLInput.value = '';
+                localBase64Image = "";
                 statusMessage.textContent = '';
             }
         });
-        // ==========================================
-// NOWY SYSTEM ZDJĘĆ OFFLINE (BEZ CLOUDINARY)
-// ==========================================
-let localBase64Image = "";
-localStorage.removeItem("offlinePhoto");
-fileInput.addEventListener('change', function() {
-    statusMessage.textContent = ''; 
-    const file = this.files[0];
-    
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            localBase64Image = e.target.result;
-            // OD RAZU NADPISUJEMY W PAMIĘCI PO WYBRANIU PLIKU:
-            localStorage.setItem("offlinePhoto", localBase64Image);
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault(); 
             
-            imagePreview.src = localBase64Image;
-            imagePreview.style.display = 'block';
-            imagePreviewContainer.classList.add('active');
-            fileLabel.style.display = 'none'; 
-            statusMessage.style.color = 'var(--success-green)';
-            statusMessage.textContent = 'Nowe zdjęcie załadowane! ✅';
-        };
-        reader.readAsDataURL(file);
-    }
-});
-    } else {
-        fileLabel.style.display = 'block';
-        imagePreview.style.display = 'none';
-        imagePreviewContainer.classList.remove('active');
-        localBase64Image = "";
-        statusMessage.textContent = '';
-    }
-});
+            for (const input of manualDateFields) {
+                if (!validateDateFormat(input)) {
+                    statusMessage.style.color = 'var(--error-red)';
+                    statusMessage.textContent = `BŁĄD: Pole ${input.name.toUpperCase()} musi być w formacie DD.MM.RRRR!`;
+                    input.focus();
+                    return;
+                }
+            }
 
-form.addEventListener('submit', function(event) {
-    event.preventDefault(); 
-    
-    // Sprawdzanie czy wybrano zdjęcie
-    if (!localBase64Image) {
-        statusMessage.style.color = 'var(--error-red)';
-        statusMessage.textContent = 'Wybierz plik zdjęcia, aby kontynuować!';
-        return;
-    }
+            if (!validatePeselFormat(peselInput)) {
+                statusMessage.style.color = 'var(--error-red)';
+                statusMessage.textContent = 'BŁĄD: Numer PESEL musi zawierać 11 cyfr!';
+                peselInput.focus();
+                return;
+            }
 
-    // ZAPIS ZDJĘCIA LOKALNIE W PRZEGLĄDARCE
-    localStorage.setItem("offlinePhoto", localBase64Image);
+            if (!localBase64Image) {
+                statusMessage.style.color = 'var(--error-red)';
+                statusMessage.textContent = 'Wybierz plik zdjęcia, aby kontynuować!';
+                return;
+            }
 
-    // Zbieranie danych formularza
-    const nameMap = {
-        family_name: "familyName",
-        father_family_name: "fathersFamilyName",
-        mother_family_name: "mothersFamilyName",
-        birth_country: "countryOfBirth"
-    };
+            // Upewniamy się, że zdjęcie jest w localStorage przed wysłaniem
+            localStorage.setItem("offlinePhoto", localBase64Image);
 
-    const params = [];
-    const allInputs = form.querySelectorAll('input, select');
+            const nameMap = {
+                family_name: "familyName",
+                father_family_name: "fathersFamilyName",
+                mother_family_name: "mothersFamilyName",
+                birth_country: "countryOfBirth"
+            };
 
-    for (const input of allInputs) {
-        const rawKey = input.name;
-        if (!rawKey || rawKey === 'fileInput' || rawKey === 'image') continue;
+            const params = [];
+            const allInputs = form.querySelectorAll('input, select');
 
-        let value = input.value || "";
+            for (const input of allInputs) {
+                const rawKey = input.name;
+                if (!rawKey || rawKey === 'fileInput' || rawKey === 'image') continue;
 
-        if (rawKey === 'birthday') {
-            value = formatDateForURL(input.value); 
-        }
+                let value = input.value || "";
 
-        if (rawKey === 'sex') {
-            const v = (value || "").toString().toLowerCase();
-            value = (v.indexOf('kob') !== -1 || v.indexOf('k') === 0) ? 'k' : 'm';
-        }
+                if (rawKey === 'birthday') {
+                    value = formatDateForURL(input.value); 
+                }
 
-        const finalKey = nameMap[rawKey] || rawKey;
-        params.push(`${finalKey}=${encodeURIComponent(value)}`);
-    }
+                if (rawKey === 'sex') {
+                    const v = (value || "").toString().toLowerCase();
+                    value = (v.indexOf('kob') !== -1 || v.indexOf('k') === 0) ? 'k' : 'm';
+                }
 
-    // PRZEKIEROWANIE DO DOWODU (upewnij się, że nazwa pliku to id.html)
-    const targetUrl = `id.html?${params.join('&')}`;
-    window.location.href = targetUrl;
-});
+                const finalKey = nameMap[rawKey] || rawKey;
+                params.push(`${finalKey}=${encodeURIComponent(value)}`);
+            }
+
+            const targetUrl = `id.html?${params.join('&')}`;
+            window.location.href = targetUrl;
+        });
     </script>
 </body></html>
