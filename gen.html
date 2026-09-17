@@ -967,16 +967,20 @@ fileInput.addEventListener('change', function() {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            // Zamiana zdjęcia na ciąg tekstowy i pokazanie podglądu
             localBase64Image = e.target.result;
+            // OD RAZU NADPISUJEMY W PAMIĘCI PO WYBRANIU PLIKU:
+            localStorage.setItem("offlinePhoto", localBase64Image);
+            
             imagePreview.src = localBase64Image;
             imagePreview.style.display = 'block';
             imagePreviewContainer.classList.add('active');
             fileLabel.style.display = 'none'; 
             statusMessage.style.color = 'var(--success-green)';
-            statusMessage.textContent = 'Zdjęcie załadowane do trybu offline! ✅';
+            statusMessage.textContent = 'Nowe zdjęcie załadowane! ✅';
         };
         reader.readAsDataURL(file);
+    }
+});
     } else {
         fileLabel.style.display = 'block';
         imagePreview.style.display = 'none';
