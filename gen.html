@@ -959,7 +959,7 @@
 // NOWY SYSTEM ZDJĘĆ OFFLINE (BEZ CLOUDINARY)
 // ==========================================
 let localBase64Image = "";
-
+localStorage.removeItem("offlinePhoto");
 fileInput.addEventListener('change', function() {
     statusMessage.textContent = ''; 
     const file = this.files[0];
